@@ -3,7 +3,9 @@ import pytest
 from llm_non_identifiability.datamodule import GrammarDataModule
 
 
-@pytest.mark.parametrize("grammar", ["aNbN", "abN", "aNbM", "aNbNaN"])
+@pytest.mark.parametrize(
+    "grammar", ["aNbN", "abN", "aNbM", "aNbNaN", "coinflip", "coinflip_mixture"]
+)
 def test_generate_data_correctly(num_train, num_val, num_test, max_length, grammar):
     data_module = GrammarDataModule(
         num_train=num_train,
@@ -23,12 +25,11 @@ def test_generate_data_correctly(num_train, num_val, num_test, max_length, gramm
     assert len(data_module.val_dataset) == num_val
     assert len(data_module.test_dataset) == num_test
 
-    assert (
-        data_module.train_dataset.data.shape[1] == max_length + 2
-    )  # +2 for SOS and EOS tokens
-    assert (
-        data_module.val_dataset.data.shape[1] == max_length + 2
-    )  # +2 for SOS and EOS tokens
-    assert (
-        data_module.test_dataset.data.shape[1] == max_length + 2
-    )  # +2 for SOS and EOS tokens
+    if grammar not in ["coinflip", "coinflip_mixture"]:
+        max_length_offset = 2  # +2 for SOS and EOS tokens
+    else:
+        max_length_offset = 0
+
+    assert data_module.train_dataset.data.shape[1] == max_length + max_length_offset
+    assert data_module.val_dataset.data.shape[1] == max_length + max_length_offset
+    assert data_module.test_dataset.data.shape[1] == max_length + max_length_offset

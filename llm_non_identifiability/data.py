@@ -352,6 +352,39 @@ def generate_test_prompts(length: int = 6):
     return prompts
 
 
+def generate_coinflip_data(num_samples: int, max_length: int = 32, p=0.5) -> np.ndarray:
+    """
+    Generates random sequences of 0's and 1's
+    :param p:
+    :param num_samples:
+    :param max_length:
+    :return:
+    """
+    #  random coinflips with bernoulli distribution
+    data = np.random.binomial(1, p, (num_samples, max_length))
+    return data
+
+
+def generate_coinflip_mixture_data(
+    num_samples: int, probs: list, max_length: int = 32
+) -> np.ndarray:
+    """
+    Generates random sequences of 0's and 1's
+    :param p:
+    :param num_samples:
+    :param max_length:
+    :return:
+    """
+    #  random coinflips with bernoulli distribution
+    data = np.concatenate(
+        [
+            generate_coinflip_data(num_samples // len(probs), max_length, p)
+            for p in probs
+        ]
+    )
+    return data
+
+
 def grammar_rules(grammar):
     """
     Selects the rules the grammar needs to satisfy.
@@ -369,6 +402,10 @@ def grammar_rules(grammar):
             and check_bs_in_the_middle(x)
             and check_bs_together(x)
         )
+    elif grammar == "coinflip":
+        return lambda x: True
+    elif grammar == "coinflip_mixture":
+        return lambda x: True
     else:
         raise ValueError(f"Unknown grammar {grammar}")
 
@@ -391,5 +428,9 @@ def prompt_grammar_rules(grammar):
         return lambda x: check_as_before_bs(x)
     elif grammar == "aNbNaN":
         return lambda x: check_as_before_bs(x) and check_bs_together(x)
+    elif grammar == "coinflip":
+        return lambda x: True
+    elif grammar == "coinflip_mixture":
+        return lambda x: True
     else:
         raise ValueError(f"Unknown grammar {grammar}")
