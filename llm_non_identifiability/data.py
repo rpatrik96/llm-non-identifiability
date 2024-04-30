@@ -352,6 +352,39 @@ def generate_test_prompts(length: int = 6):
     return prompts
 
 
+def generate_coinflip_data(num_samples: int, max_length: int = 32, p=0.5) -> np.ndarray:
+    """
+    Generates random sequences of 0's and 1's
+    :param p:
+    :param num_samples:
+    :param max_length:
+    :return:
+    """
+    #  random coinflips with bernoulli distribution
+    data = np.random.binomial(1, p, (num_samples, max_length))
+    return data
+
+
+def generate_coinflip_mixture_data(
+    num_samples: int, probs: list, max_length: int = 32
+) -> np.ndarray:
+    """
+    Generates random sequences of 0's and 1's
+    :param p:
+    :param num_samples:
+    :param max_length:
+    :return:
+    """
+    #  random coinflips with bernoulli distribution
+    data = np.concatenate(
+        [
+            generate_coinflip_data(num_samples // len(probs), max_length, p)
+            for p in probs
+        ]
+    )
+    return data
+
+
 def grammar_rules(grammar):
     """
     Selects the rules the grammar needs to satisfy.

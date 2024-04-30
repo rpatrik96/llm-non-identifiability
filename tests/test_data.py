@@ -8,6 +8,8 @@ from llm_non_identifiability.data import (
     generate_abN_grammar_data,
     generate_aNbM_grammar_data,
     generate_aNbNaN_grammar_data,
+    generate_coinflip_data,
+    generate_coinflip_mixture_data,
     pad,
     PAD_token,
     check_sequence_finished,
@@ -223,6 +225,26 @@ def test_generate_test_prompts():
     prompts = generate_test_prompts(length)
 
     assert prompts.shape == (2**length, length + 1)
+
+
+def test_generate_coinflip_data():
+    num_samples = 10
+    max_length = 10
+    data = generate_coinflip_data(num_samples, max_length)
+
+    assert len(data) == num_samples
+    assert all(len(d) == max_length for d in data)
+    assert all(all(t in [0, 1] for t in d) for d in data)
+
+
+def test_generate_coinflip_mixture_data():
+    num_samples = 10
+    max_length = 10
+    data = generate_coinflip_mixture_data(num_samples, [0.1, 0.6], max_length)
+
+    assert len(data) == num_samples
+    assert all(len(d) == max_length for d in data)
+    assert all(all(t in [0, 1] for t in d) for d in data)
 
 
 @pytest.mark.parametrize("grammar", ["aNbN", "abN", "aNbM"])
