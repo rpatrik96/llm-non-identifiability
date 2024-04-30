@@ -9,6 +9,8 @@ from llm_non_identifiability.data import (
     generate_abN_grammar_data,
     generate_aNbM_grammar_data,
     generate_aNbNaN_grammar_data,
+    generate_coinflip_data,
+    generate_coinflip_mixture_data,
 )
 from llm_non_identifiability.dataset import GrammarDataset
 
@@ -27,9 +29,11 @@ class GrammarDataModule(pl.LightningDataModule):
         batch_size: int = 64,
         grammar: str = "aNbN",
         max_num_workers: int = 4,
+        probs=(0.1, 0.6),
     ):
         """
 
+        :param probs:
         :param max_num_workers:
         :param num_train:
         :param num_val:
@@ -52,6 +56,14 @@ class GrammarDataModule(pl.LightningDataModule):
             return generate_aNbM_grammar_data
         elif self.hparams.grammar == "aNbNaN":
             return generate_aNbNaN_grammar_data
+        elif self.hparams.grammar == "coinflip":
+            return lambda num_samples, max_length: generate_coinflip_data(
+                num_samples, max_length, p=self.hparams.probs[0]
+            )
+        elif self.hparams.grammar == "coinflip_mixture":
+            return lambda num_samples, max_length: generate_coinflip_mixture_data(
+                num_samples, self.hparams.probs, max_length
+            )
         else:
             raise ValueError(f"Unknown grammar {self.hparams.grammar}")
 
@@ -72,17 +84,22 @@ class GrammarDataModule(pl.LightningDataModule):
         val_data = grammar_generator(self.hparams.num_val, self.hparams.max_length)
         test_data = grammar_generator(self.hparams.num_test, self.hparams.max_length)
 
+        if self.hparams.grammar not in ["coinflip", "coinflip_mixture"]:
+            max_length_offset = 2  # +2 for SOS and EOS tokens
+        else:
+            max_length_offset = 0
+
         self.test_dataset = GrammarDataset(
             test_data,
-            max_length=self.hparams.max_length + 2,  # +2 for SOS and EOS tokens
+            max_length=self.hparams.max_length + max_length_offset,
         )
         self.val_dataset = GrammarDataset(
             val_data,
-            max_length=self.hparams.max_length + 2,  # +2 for SOS and EOS tokens
+            max_length=self.hparams.max_length + max_length_offset,
         )
         self.train_dataset = GrammarDataset(
             train_data,
-            max_length=self.hparams.max_length + 2,  # +2 for SOS and EOS tokens
+            max_length=self.hparams.max_length + max_length_offset,
         )
 
     def train_dataloader(self):
