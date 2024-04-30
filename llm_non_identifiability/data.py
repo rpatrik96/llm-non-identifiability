@@ -402,6 +402,10 @@ def grammar_rules(grammar):
             and check_bs_in_the_middle(x)
             and check_bs_together(x)
         )
+    elif grammar == "coinflip":
+        return lambda x: True
+    elif grammar == "coinflip_mixture":
+        return lambda x: True
     else:
         raise ValueError(f"Unknown grammar {grammar}")
 
@@ -424,5 +428,9 @@ def prompt_grammar_rules(grammar):
         return lambda x: check_as_before_bs(x)
     elif grammar == "aNbNaN":
         return lambda x: check_as_before_bs(x) and check_bs_together(x)
+    elif grammar == "coinflip":
+        return lambda x: True
+    elif grammar == "coinflip_mixture":
+        return lambda x: True
     else:
         raise ValueError(f"Unknown grammar {grammar}")
