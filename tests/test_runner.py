@@ -26,7 +26,7 @@ def test_fit_optimizer(num_train, num_val, num_test, optimizer):
 @pytest.mark.parametrize("grammar", ["coinflip", "coinflip_mixture"])
 def test_fit_grammars(num_train, num_val, num_test, max_length, grammar):
     trainer = Trainer(fast_dev_run=True)
-    runner = LightningGrammarModule(max_data_length=max_length, grammar=grammar)
+    runner = LightningGrammarModule(grammar=grammar, max_data_length=max_length)
     dm = GrammarDataModule(
         num_train=num_train,
         num_val=num_val,

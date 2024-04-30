@@ -16,6 +16,8 @@ from llm_non_identifiability.data import (
     PAD_token,
     check_sequence_finished,
     generate_test_prompts,
+    generate_coinflip_data,
+    generate_coinflip_mixture_data,
     grammar_rules,
     prompt_grammar_rules,
     GrammarMetrics,
@@ -56,8 +58,10 @@ class LightningGrammarModule(pl.LightningModule):
         num_warmup_steps: int = 1000,
         extrapolation_training: bool = False,
         optimizer: str = "adamw",
+        probs=(0.1, 0.6),
     ):
         """
+        :param probs:
         :param optimizer:
         :param extrapolation_training:
         :param num_warmup_steps:
@@ -122,14 +126,38 @@ class LightningGrammarModule(pl.LightningModule):
             raise ValueError(f"Unknown optimizer: {self.hparams.optimizer}")
 
     def _setup_test_prompts(self) -> None:
-        test_prompts = generate_test_prompts(length=self.hparams.test_prompt_length).to(
-            self.hparams.device
-        )
+        if self.hparams.grammar not in ["coinflip", "coinflip_mixture"]:
+            test_prompts = generate_test_prompts(
+                length=self.hparams.test_prompt_length
+            ).to(self.hparams.device)
 
-        rules_met = [self.prompt_grammar_rules(t) for t in test_prompts]
+            rules_met = [self.prompt_grammar_rules(t) for t in test_prompts]
 
-        self.test_prompts_in_distribution = test_prompts[rules_met]
-        self.test_prompts_out_of_distribution = test_prompts[[not r for r in rules_met]]
+            self.test_prompts_in_distribution = test_prompts[rules_met]
+            self.test_prompts_out_of_distribution = test_prompts[
+                [not r for r in rules_met]
+            ]
+        else:
+            self.test_prompts_in_distribution = torch.from_numpy(
+                generate_coinflip_mixture_data(
+                    num_samples=2**self.hparams.test_prompt_length,
+                    probs=self.hparams.probs,
+                    max_length=self.hparams.test_prompt_length,
+                )
+            )
+            self.test_prompts_out_of_distribution = torch.from_numpy(
+                generate_coinflip_data(
+                    num_samples=2**self.hparams.test_prompt_length,
+                    max_length=self.hparams.test_prompt_length,
+                    p=self.hparams.probs[0],
+                )
+            )
+            test_prompts = torch.cat(
+                (
+                    self.test_prompts_in_distribution,
+                    self.test_prompts_out_of_distribution,
+                )
+            )
 
         self.hparams.test_prompts_in_distribution_len = len(
             self.test_prompts_in_distribution
