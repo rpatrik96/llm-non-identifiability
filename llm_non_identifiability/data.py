@@ -382,6 +382,8 @@ def generate_coinflip_mixture_data(
             for p in probs
         ]
     )
+    np.random.shuffle(data)
+
     return data
 
 
