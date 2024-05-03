@@ -144,14 +144,14 @@ class LightningGrammarModule(pl.LightningModule):
                     probs=self.hparams.probs,
                     max_length=self.hparams.test_prompt_length,
                 )
-            )
+            ).to(self.hparams.device)
             self.test_prompts_out_of_distribution = torch.from_numpy(
                 generate_coinflip_data(
                     num_samples=2**self.hparams.test_prompt_length,
                     max_length=self.hparams.test_prompt_length,
                     p=self.hparams.probs[0],
                 )
-            )
+            ).to(self.hparams.device)
             test_prompts = torch.cat(
                 (
                     self.test_prompts_in_distribution,
@@ -438,20 +438,26 @@ class LightningGrammarModule(pl.LightningModule):
         )
 
         # prompt prediction for a batch of SOS tokens
-        sos_prompts = (
-            torch.ones(
-                (self.hparams.batch_size, 1),
-                dtype=torch.long,
-                device=self.hparams.device,
+        if self.hparams.grammar not in ["coinflip", "coinflip_mixture"]:
+            sos_prompts = (
+                torch.ones(
+                    (self.hparams.batch_size, 1),
+                    dtype=torch.long,
+                    device=self.hparams.device,
+                )
+                * SOS_token.item()
             )
-            * SOS_token.item()
-        )
-        (
-            sos_prompts,
-            sos_metrics,
-            sos_prompts_finished,
-            sos_metrics_finished,
-        ) = self._calc_prompt_pred_metrics(sos_prompts, max_length)
+            (
+                sos_prompts,
+                sos_metrics,
+                sos_prompts_finished,
+                sos_metrics_finished,
+            ) = self._calc_prompt_pred_metrics(sos_prompts, max_length)
+        else:
+            sos_prompts = []
+            sos_metrics = GrammarMetrics()
+            sos_prompts_finished = []
+            sos_metrics_finished = GrammarMetrics()
 
         return (
             prompts,
