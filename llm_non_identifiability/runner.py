@@ -412,8 +412,9 @@ class LightningGrammarModule(pl.LightningModule):
         checkpoint["ood_prompts"] = ood_prompts.cpu().numpy()
         checkpoint["ood_prompts_finished"] = ood_prompts_finished.cpu().numpy()
 
-        checkpoint["sos_prompts"] = sos_prompts.cpu().numpy()
-        checkpoint["sos_prompts_finished"] = sos_prompts_finished.cpu().numpy()
+        if self.hparams.grammar not in ["coinflip", "coinflip_mixture"]:
+            checkpoint["sos_prompts"] = sos_prompts.cpu().numpy()
+            checkpoint["sos_prompts_finished"] = sos_prompts_finished.cpu().numpy()
 
     @property
     def test_prompts_src(self):
