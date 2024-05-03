@@ -331,10 +331,13 @@ class LightningGrammarModule(pl.LightningModule):
         self._log_dict(
             name=f"{panel_name}/OOD/finished", dictionary=ood_metrics_finished.to_dict()
         )
-        self._log_dict(name=f"{panel_name}/SOS", dictionary=sos_metrics.to_dict())
-        self._log_dict(
-            name=f"{panel_name}/SOS/finished", dictionary=sos_metrics_finished.to_dict()
-        )
+
+        if self.hparams.grammar not in ["coinflip", "coinflip_mixture"]:
+            self._log_dict(name=f"{panel_name}/SOS", dictionary=sos_metrics.to_dict())
+            self._log_dict(
+                name=f"{panel_name}/SOS/finished",
+                dictionary=sos_metrics_finished.to_dict(),
+            )
 
         if isinstance(self.logger, pl.loggers.wandb.WandbLogger) is True:
             logger: pl.loggers.wandb.WandbLogger = self.logger
@@ -346,11 +349,9 @@ class LightningGrammarModule(pl.LightningModule):
             # convert the prompt tensors to strings
             prompts_str = prompts2str(prompts)
             ood_prompts_str = prompts2str(ood_prompts)
-            sos_prompts_str = prompts2str(sos_prompts)
 
             prompts_finished_str = prompts2str(prompts_finished)
             ood_prompts_finished_str = prompts2str(ood_prompts_finished)
-            sos_prompts_finished_str = prompts2str(sos_prompts_finished)
 
             columns = ["completion"]
 
@@ -360,9 +361,6 @@ class LightningGrammarModule(pl.LightningModule):
             )
             logger.log_text(
                 key="ood_prompt_completions", columns=columns, data=ood_prompts_str
-            )
-            logger.log_text(
-                key="sos_prompt_completions", columns=columns, data=sos_prompts_str
             )
 
             logger.log_text(
@@ -375,11 +373,18 @@ class LightningGrammarModule(pl.LightningModule):
                 columns=columns,
                 data=ood_prompts_finished_str,
             )
-            logger.log_text(
-                key="sos_prompt_completions_finished",
-                columns=columns,
-                data=sos_prompts_finished_str,
-            )
+
+            if self.hparams.grammar not in ["coinflip", "coinflip_mixture"]:
+                sos_prompts_str = prompts2str(sos_prompts)
+                sos_prompts_finished_str = prompts2str(sos_prompts_finished)
+                logger.log_text(
+                    key="sos_prompt_completions", columns=columns, data=sos_prompts_str
+                )
+                logger.log_text(
+                    key="sos_prompt_completions_finished",
+                    columns=columns,
+                    data=sos_prompts_finished_str,
+                )
 
     def _log_dict(self, name, dictionary):
         for key, value in dictionary.items():
