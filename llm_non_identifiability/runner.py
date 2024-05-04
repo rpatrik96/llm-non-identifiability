@@ -339,6 +339,13 @@ class LightningGrammarModule(pl.LightningModule):
                 dictionary=sos_metrics_finished.to_dict(),
             )
 
+        # calculate token probabilities
+        if self.hparams.grammar in ["coinflip", "coinflip_mixture"]:
+            mean_probs = torch.nn.functional.softmax(pred, dim=1).mean(0).mean(-1)
+
+            self.log(f"{panel_name}/prob_head", mean_probs[0])
+            self.log(f"{panel_name}/prob_tail", mean_probs[1])
+
         if isinstance(self.logger, pl.loggers.wandb.WandbLogger) is True:
             logger: pl.loggers.wandb.WandbLogger = self.logger
 
