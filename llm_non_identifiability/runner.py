@@ -426,42 +426,41 @@ class LightningGrammarModule(pl.LightningModule):
                 dictionary=sos_metrics_finished.to_dict(),
             )
 
-        if isinstance(self.logger, pl.loggers.wandb.WandbLogger) is True:
-            logger: pl.loggers.wandb.WandbLogger = self.logger
+            if isinstance(self.logger, pl.loggers.wandb.WandbLogger) is True:
+                logger: pl.loggers.wandb.WandbLogger = self.logger
 
-            # log the prompts
-            prompts2str = lambda data: [
-                ["".join([str(t) for t in p])] for p in data.cpu().numpy().tolist()
-            ]
-            # convert the prompt tensors to strings
-            prompts_str = prompts2str(prompts)
-            ood_prompts_str = prompts2str(ood_prompts)
+                # log the prompts
+                prompts2str = lambda data: [
+                    ["".join([str(t) for t in p])] for p in data.cpu().numpy().tolist()
+                ]
+                # convert the prompt tensors to strings
+                prompts_str = prompts2str(prompts)
+                ood_prompts_str = prompts2str(ood_prompts)
 
-            prompts_finished_str = prompts2str(prompts_finished)
-            ood_prompts_finished_str = prompts2str(ood_prompts_finished)
+                prompts_finished_str = prompts2str(prompts_finished)
+                ood_prompts_finished_str = prompts2str(ood_prompts_finished)
 
-            columns = ["completion"]
+                columns = ["completion"]
 
-            # data should be a list of lists
-            logger.log_text(
-                key="id_prompt_completions", columns=columns, data=prompts_str
-            )
-            logger.log_text(
-                key="ood_prompt_completions", columns=columns, data=ood_prompts_str
-            )
+                # data should be a list of lists
+                logger.log_text(
+                    key="id_prompt_completions", columns=columns, data=prompts_str
+                )
+                logger.log_text(
+                    key="ood_prompt_completions", columns=columns, data=ood_prompts_str
+                )
 
-            logger.log_text(
-                key="id_prompt_completions_finished",
-                columns=columns,
-                data=prompts_finished_str,
-            )
-            logger.log_text(
-                key="ood_prompt_completions_finished",
-                columns=columns,
-                data=ood_prompts_finished_str,
-            )
+                logger.log_text(
+                    key="id_prompt_completions_finished",
+                    columns=columns,
+                    data=prompts_finished_str,
+                )
+                logger.log_text(
+                    key="ood_prompt_completions_finished",
+                    columns=columns,
+                    data=ood_prompts_finished_str,
+                )
 
-            if self.hparams.grammar not in ["coinflip", "coinflip_mixture"]:
                 sos_prompts_str = prompts2str(sos_prompts)
                 sos_prompts_finished_str = prompts2str(sos_prompts_finished)
                 logger.log_text(
