@@ -18,7 +18,7 @@ parameters:
   model.dim_model:
     value: 8
   model.num_heads:
-    value: 5
+    value: 4
   model.dim_feedforward:
     value: 1024
   model.num_decoder_layers:
