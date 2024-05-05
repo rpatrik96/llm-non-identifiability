@@ -24,6 +24,8 @@ class LLMLightningCLI(LightningCLI):
         parser.link_arguments("data.max_length", "model.max_data_length")
         parser.link_arguments("data.batch_size", "model.batch_size")
         parser.link_arguments("data.probs", "model.probs")
+        parser.link_arguments("data.len_zero_prefix", "model.len_zero_prefix")
+        parser.link_arguments("data.ones_in_zero_prefix", "model.ones_in_zero_prefix")
 
 
 if __name__ == "__main__":

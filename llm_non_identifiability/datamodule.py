@@ -30,9 +30,13 @@ class GrammarDataModule(pl.LightningDataModule):
         grammar: str = "aNbN",
         max_num_workers: int = 4,
         probs=(0.1, 0.6),
+        len_zero_prefix=10,
+        ones_in_zero_prefix=3,
     ):
         """
 
+        :param ones_in_zero_prefix:
+        :param len_zero_prefix:
         :param probs:
         :param max_num_workers:
         :param num_train:
@@ -64,6 +68,13 @@ class GrammarDataModule(pl.LightningDataModule):
             return lambda num_samples, max_length: generate_coinflip_mixture_data(
                 num_samples, self.hparams.probs, max_length
             )
+        elif self.hparams.grammar == "coinflip_mixture_prefix":
+            return lambda num_samples, max_length: generate_coinflip_mixture_data(
+                num_samples,
+                self.hparams.probs,
+                max_length,
+                len_zero_prefix=self.hparams.len_zero_prefix,
+            )
         else:
             raise ValueError(f"Unknown grammar {self.hparams.grammar}")
 
@@ -84,7 +95,11 @@ class GrammarDataModule(pl.LightningDataModule):
         val_data = grammar_generator(self.hparams.num_val, self.hparams.max_length)
         test_data = grammar_generator(self.hparams.num_test, self.hparams.max_length)
 
-        if self.hparams.grammar not in ["coinflip", "coinflip_mixture"]:
+        if self.hparams.grammar not in [
+            "coinflip",
+            "coinflip_mixture",
+            "coinflip_mixture_prefix",
+        ]:
             max_length_offset = 2  # +2 for SOS and EOS tokens
         else:
             max_length_offset = 0

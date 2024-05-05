@@ -60,8 +60,12 @@ class LightningGrammarModule(pl.LightningModule):
         extrapolation_training: bool = False,
         optimizer: str = "adamw",
         probs=(0.1, 0.6),
+        len_zero_prefix=10,
+        ones_in_zero_prefix=3,
     ):
         """
+        :param ones_in_zero_prefix:
+        :param len_zero_prefix:
         :param probs:
         :param optimizer:
         :param extrapolation_training:
@@ -127,7 +131,70 @@ class LightningGrammarModule(pl.LightningModule):
             raise ValueError(f"Unknown optimizer: {self.hparams.optimizer}")
 
     def _setup_test_prompts(self) -> None:
-        if self.hparams.grammar not in ["coinflip", "coinflip_mixture"]:
+        if self.hparams.grammar in ["coinflip", "coinflip_mixture"]:
+            self.hparams.eval_probs = np.arange(0, 1.05, 0.05)
+
+            self.test_prompts_in_distribution = torch.from_numpy(
+                generate_coinflip_mixture_data(
+                    num_samples=2**self.hparams.test_prompt_length,
+                    probs=self.hparams.probs,
+                    max_length=self.hparams.max_data_length,
+                )
+            ).to(self.hparams.device)
+            self.hparams.test_prompts_in_distribution_len = len(
+                self.test_prompts_in_distribution
+            )
+
+            self.test_prompts_out_of_distribution = [
+                torch.from_numpy(
+                    generate_coinflip_data(
+                        num_samples=2**self.hparams.test_prompt_length,
+                        max_length=self.hparams.max_data_length,
+                        p=p,
+                    )
+                )
+                for p in self.hparams.eval_probs
+            ]
+
+            self.hparams.test_prompts_ood_len = sum(
+                [len(t) for t in self.test_prompts_out_of_distribution]
+            )
+
+        elif self.hparams.grammar == "coinflip_mixture_prefix":
+            self.test_prompts_in_distribution = torch.from_numpy(
+                generate_coinflip_mixture_data(
+                    num_samples=2**self.hparams.test_prompt_length,
+                    probs=self.hparams.probs,
+                    max_length=self.hparams.max_data_length,
+                    len_zero_prefix=self.hparams.len_zero_prefix,
+                    ones_in_zero_prefix=0,
+                )
+            ).to(self.hparams.device)
+            self.hparams.test_prompts_in_distribution_len = len(
+                self.test_prompts_in_distribution
+            )
+
+            self.test_prompts_out_of_distribution = torch.from_numpy(  # type: ignore [assignment]
+                generate_coinflip_mixture_data(
+                    num_samples=2**self.hparams.test_prompt_length,
+                    max_length=self.hparams.max_data_length,
+                    probs=self.hparams.probs,
+                    len_zero_prefix=self.hparams.len_zero_prefix,
+                    ones_in_zero_prefix=self.hparams.ones_in_zero_prefix,
+                )
+            ).to(
+                self.hparams.device
+            )
+
+            self.hparams.test_prompts_ood_len = len(
+                self.test_prompts_out_of_distribution
+            )
+
+        elif self.hparams.grammar not in [
+            "coinflip",
+            "coinflip_mixture",
+            "coinflip_mixture_prefix",
+        ]:
             test_prompts = generate_test_prompts(
                 length=self.hparams.test_prompt_length
             ).to(self.hparams.device)
@@ -151,34 +218,7 @@ class LightningGrammarModule(pl.LightningModule):
                 == self.hparams.test_prompts_in_distribution_len
                 + self.hparams.test_prompts_ood_len
             )
-        else:
-            self.hparams.eval_probs = np.arange(0, 1.05, 0.05)
-
-            self.test_prompts_in_distribution = torch.from_numpy(
-                generate_coinflip_mixture_data(
-                    num_samples=2**self.hparams.test_prompt_length,
-                    probs=self.hparams.probs,
-                    max_length=self.hparams.test_prompt_length,
-                )
-            ).to(self.hparams.device)
-            self.hparams.test_prompts_in_distribution_len = len(
-                self.test_prompts_in_distribution
-            )
-
-            self.test_prompts_out_of_distribution = [
-                torch.from_numpy(
-                    generate_coinflip_data(
-                        num_samples=2**self.hparams.test_prompt_length,
-                        p=p,
-                        max_length=self.hparams.test_prompt_length,
-                    )
-                )
-                for p in self.hparams.eval_probs
-            ]
-
-            self.hparams.test_prompts_ood_len = sum(
-                [len(t) for t in self.test_prompts_out_of_distribution]
-            )
+        self.hparams.test_prompts_ood_len = len(self.test_prompts_out_of_distribution)
 
         if isinstance(self.logger, pl.loggers.wandb.WandbLogger) is True:
             # log entropy of the test prompts = entropy of the distribution of the prompt lengths
@@ -317,7 +357,43 @@ class LightningGrammarModule(pl.LightningModule):
         accuracy = torch.sum(pred_tokens == X_expected) / X_expected.numel()
         self.log(f"{panel_name}/accuracy", accuracy)
 
-        if self.hparams.grammar not in ["coinflip", "coinflip_mixture"]:
+        # calculate token probabilities
+        if self.hparams.grammar in ["coinflip", "coinflip_mixture"]:
+            mean_probs = torch.nn.functional.softmax(pred, dim=1).mean(0).mean(-1)
+
+            self.log(f"{panel_name}/prob_head", mean_probs[0])
+            self.log(f"{panel_name}/prob_tail", mean_probs[1])
+
+            for p, ood_prompts in zip(
+                self.hparams.eval_probs, self.test_prompts_out_of_distribution
+            ):
+                X, X_expected, pred, loss = self._forward(
+                    ood_prompts.to(self.hparams.device)
+                )
+                # pick most likely token and calculate and log accuracy
+                pred_tokens = self._pick_next_tokens(pred)
+                accuracy = torch.sum(pred_tokens == X_expected) / X_expected.numel()
+                self.log(f"{panel_name}/OOD/{p}/accuracy", accuracy)
+
+                mean_probs = torch.nn.functional.softmax(pred, dim=1).mean(0).mean(-1)
+
+                self.log(f"{panel_name}/OOD/{p}/prob_head", mean_probs[0])
+                self.log(f"{panel_name}/OOD/{p}/prob_tail", mean_probs[1])
+
+        elif self.hparams.grammar == "coinflip_mixture_prefix":
+            X, X_expected, pred, loss = self._forward(
+                self.test_prompts_out_of_distribution
+            )
+            # pick most likely token and calculate and log accuracy
+            pred_tokens = self._pick_next_tokens(pred)
+            accuracy = torch.sum(pred_tokens == X_expected) / X_expected.numel()
+            self.log(f"{panel_name}/OOD/accuracy", accuracy)
+
+            mean_probs = torch.nn.functional.softmax(pred, dim=1).mean(0).mean(-1)
+
+            self.log(f"{panel_name}/OOD/prob_head", mean_probs[0])
+            self.log(f"{panel_name}/OOD/prob_tail", mean_probs[1])
+        else:
             (
                 prompts,
                 metrics,
@@ -349,29 +425,6 @@ class LightningGrammarModule(pl.LightningModule):
                 name=f"{panel_name}/SOS/finished",
                 dictionary=sos_metrics_finished.to_dict(),
             )
-
-        # calculate token probabilities
-        elif self.hparams.grammar in ["coinflip", "coinflip_mixture"]:
-            mean_probs = torch.nn.functional.softmax(pred, dim=1).mean(0).mean(-1)
-
-            self.log(f"{panel_name}/prob_head", mean_probs[0])
-            self.log(f"{panel_name}/prob_tail", mean_probs[1])
-
-            for p, ood_prompts in zip(
-                self.hparams.eval_probs, self.test_prompts_out_of_distribution
-            ):
-                X, X_expected, pred, loss = self._forward(
-                    ood_prompts.to(self.hparams.device)
-                )
-                # pick most likely token and calculate and log accuracy
-                pred_tokens = self._pick_next_tokens(pred)
-                accuracy = torch.sum(pred_tokens == X_expected) / X_expected.numel()
-                self.log(f"{panel_name}/OOD/{p}/accuracy", accuracy)
-
-                mean_probs = torch.nn.functional.softmax(pred, dim=1).mean(0).mean(-1)
-
-                self.log(f"{panel_name}/OOD/{p}/prob_head", mean_probs[0])
-                self.log(f"{panel_name}/OOD/{p}/prob_tail", mean_probs[1])
 
         if isinstance(self.logger, pl.loggers.wandb.WandbLogger) is True:
             logger: pl.loggers.wandb.WandbLogger = self.logger
@@ -425,7 +478,11 @@ class LightningGrammarModule(pl.LightningModule):
             self.log(f"{name}/{key}", value)
 
     def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        if self.hparams.grammar not in ["coinflip", "coinflip_mixture"]:
+        if self.hparams.grammar not in [
+            "coinflip",
+            "coinflip_mixture",
+            "coinflip_mixture_prefix",
+        ]:
             (
                 prompts,
                 metrics,

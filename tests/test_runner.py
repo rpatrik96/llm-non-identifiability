@@ -23,11 +23,19 @@ def test_fit_optimizer(num_train, num_val, num_test, optimizer):
     trainer.fit(runner, datamodule=dm)
 
 
-@pytest.mark.parametrize("grammar", ["coinflip", "coinflip_mixture"])
+@pytest.mark.parametrize(
+    "grammar", ["coinflip", "coinflip_mixture", "coinflip_mixture_prefix"]
+)
 def test_fit_grammars(num_train, num_val, num_test, max_length, grammar):
     trainer = Trainer(fast_dev_run=True)
+    len_zero_prefix = 2
+    ones_in_zero_prefix = 1
     runner = LightningGrammarModule(
-        grammar=grammar, max_data_length=max_length, num_tokens=2
+        num_tokens=2,
+        grammar=grammar,
+        max_data_length=max_length,
+        len_zero_prefix=len_zero_prefix,
+        ones_in_zero_prefix=ones_in_zero_prefix,
     )
     dm = GrammarDataModule(
         num_train=num_train,
@@ -35,6 +43,8 @@ def test_fit_grammars(num_train, num_val, num_test, max_length, grammar):
         num_test=num_test,
         max_length=max_length,
         grammar=grammar,
+        len_zero_prefix=len_zero_prefix,
+        ones_in_zero_prefix=ones_in_zero_prefix,
     )
     trainer.fit(runner, datamodule=dm)
 

@@ -4,7 +4,16 @@ from llm_non_identifiability.datamodule import GrammarDataModule
 
 
 @pytest.mark.parametrize(
-    "grammar", ["aNbN", "abN", "aNbM", "aNbNaN", "coinflip", "coinflip_mixture"]
+    "grammar",
+    [
+        "aNbN",
+        "abN",
+        "aNbM",
+        "aNbNaN",
+        "coinflip",
+        "coinflip_mixture",
+        "coinflip_mixture_prefix",
+    ],
 )
 def test_generate_data_correctly(num_train, num_val, num_test, max_length, grammar):
     data_module = GrammarDataModule(
@@ -25,7 +34,7 @@ def test_generate_data_correctly(num_train, num_val, num_test, max_length, gramm
     assert len(data_module.val_dataset) == num_val
     assert len(data_module.test_dataset) == num_test
 
-    if grammar not in ["coinflip", "coinflip_mixture"]:
+    if grammar not in ["coinflip", "coinflip_mixture", "coinflip_mixture_prefix"]:
         max_length_offset = 2  # +2 for SOS and EOS tokens
     else:
         max_length_offset = 0
