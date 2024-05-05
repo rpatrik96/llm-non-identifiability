@@ -138,7 +138,7 @@ class LightningGrammarModule(pl.LightningModule):
                 generate_coinflip_mixture_data(
                     num_samples=2**self.hparams.test_prompt_length,
                     probs=self.hparams.probs,
-                    max_length=self.hparams.test_prompt_length,
+                    max_length=self.hparams.max_data_length,
                 )
             ).to(self.hparams.device)
             self.hparams.test_prompts_in_distribution_len = len(
@@ -149,7 +149,7 @@ class LightningGrammarModule(pl.LightningModule):
                 torch.from_numpy(
                     generate_coinflip_data(
                         num_samples=2**self.hparams.test_prompt_length,
-                        max_length=self.hparams.test_prompt_length,
+                        max_length=self.hparams.max_data_length,
                         p=p,
                     )
                 )
@@ -165,7 +165,7 @@ class LightningGrammarModule(pl.LightningModule):
                 generate_coinflip_mixture_data(
                     num_samples=2**self.hparams.test_prompt_length,
                     probs=self.hparams.probs,
-                    max_length=self.hparams.test_prompt_length,
+                    max_length=self.hparams.max_data_length,
                     len_zero_prefix=self.hparams.len_zero_prefix,
                     ones_in_zero_prefix=0,
                 )
@@ -177,14 +177,18 @@ class LightningGrammarModule(pl.LightningModule):
             self.test_prompts_out_of_distribution = torch.from_numpy(
                 generate_coinflip_mixture_data(
                     num_samples=2**self.hparams.test_prompt_length,
-                    max_length=self.hparams.test_prompt_length,
+                    max_length=self.hparams.max_data_length,
                     probs=self.hparams.probs,
                     len_zero_prefix=self.hparams.len_zero_prefix,
                     ones_in_zero_prefix=self.hparams.ones_in_zero_prefix,
                 )
             ).to(self.hparams.device)
 
-        if self.hparams.grammar not in [
+            self.hparams.test_prompts_ood_len = len(
+                self.test_prompts_out_of_distribution
+            )
+
+        elif self.hparams.grammar not in [
             "coinflip",
             "coinflip_mixture",
             "coinflip_mixture_prefix",

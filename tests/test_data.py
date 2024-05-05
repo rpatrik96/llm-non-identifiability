@@ -232,7 +232,7 @@ def test_generate_test_prompts():
 )
 def test_generate_coinflip_data(len_zero_prefix, ones_in_zero_prefix):
     num_samples = 5
-    max_length = 20
+    max_length = 32
     data = generate_coinflip_data(
         num_samples,
         max_length,
