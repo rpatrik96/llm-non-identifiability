@@ -381,6 +381,11 @@ class LightningGrammarModule(pl.LightningModule):
                 self.log(f"{panel_name}/OOD/{p}/prob_tail", mean_probs[1])
 
         elif self.hparams.grammar == "coinflip_mixture_prefix":
+            mean_probs = torch.nn.functional.softmax(pred, dim=1).mean(0).mean(-1)
+
+            self.log(f"{panel_name}/prob_head", mean_probs[0])
+            self.log(f"{panel_name}/prob_tail", mean_probs[1])
+
             X, X_expected, pred, loss = self._forward(
                 self.test_prompts_out_of_distribution
             )
@@ -534,7 +539,11 @@ class LightningGrammarModule(pl.LightningModule):
         )
 
         # prompt prediction for a batch of SOS tokens
-        if self.hparams.grammar not in ["coinflip", "coinflip_mixture"]:
+        if self.hparams.grammar not in [
+            "coinflip",
+            "coinflip_mixture",
+            "coinflip_mixture_prefix",
+        ]:
             sos_prompts = (
                 torch.ones(
                     (self.hparams.batch_size, 1),
