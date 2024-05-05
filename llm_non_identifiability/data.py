@@ -464,6 +464,8 @@ def grammar_rules(grammar):
         return lambda x: True
     elif grammar == "coinflip_mixture":
         return lambda x: True
+    elif grammar == "coinflip_mixture_prefix":
+        return lambda x: True
     else:
         raise ValueError(f"Unknown grammar {grammar}")
 
@@ -489,6 +491,8 @@ def prompt_grammar_rules(grammar):
     elif grammar == "coinflip":
         return lambda x: True
     elif grammar == "coinflip_mixture":
+        return lambda x: True
+    elif grammar == "coinflip_mixture_prefix":
         return lambda x: True
     else:
         raise ValueError(f"Unknown grammar {grammar}")
