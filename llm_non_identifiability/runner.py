@@ -3,6 +3,7 @@ import subprocess
 from os.path import dirname
 from typing import Optional, Dict, Any
 
+import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
@@ -137,7 +138,22 @@ class LightningGrammarModule(pl.LightningModule):
             self.test_prompts_out_of_distribution = test_prompts[
                 [not r for r in rules_met]
             ]
+
+            self.hparams.test_prompts_in_distribution_len = len(
+                self.test_prompts_in_distribution
+            )
+            self.hparams.test_prompts_ood_len = len(
+                self.test_prompts_out_of_distribution
+            )
+
+            assert (
+                len(test_prompts)
+                == self.hparams.test_prompts_in_distribution_len
+                + self.hparams.test_prompts_ood_len
+            )
         else:
+            self.hparams.eval_probs = np.arange(0, 1.05, 0.05)
+
             self.test_prompts_in_distribution = torch.from_numpy(
                 generate_coinflip_mixture_data(
                     num_samples=2**self.hparams.test_prompt_length,
@@ -145,30 +161,24 @@ class LightningGrammarModule(pl.LightningModule):
                     max_length=self.hparams.test_prompt_length,
                 )
             ).to(self.hparams.device)
-            self.test_prompts_out_of_distribution = torch.from_numpy(
-                generate_coinflip_data(
-                    num_samples=2**self.hparams.test_prompt_length,
-                    max_length=self.hparams.test_prompt_length,
-                    p=self.hparams.probs[0],
-                )
-            ).to(self.hparams.device)
-            test_prompts = torch.cat(
-                (
-                    self.test_prompts_in_distribution,
-                    self.test_prompts_out_of_distribution,
-                )
+            self.hparams.test_prompts_in_distribution_len = len(
+                self.test_prompts_in_distribution
             )
 
-        self.hparams.test_prompts_in_distribution_len = len(
-            self.test_prompts_in_distribution
-        )
-        self.hparams.test_prompts_ood_len = len(self.test_prompts_out_of_distribution)
+            self.test_prompts_out_of_distribution = [
+                torch.from_numpy(
+                    generate_coinflip_data(
+                        num_samples=2**self.hparams.test_prompt_length,
+                        p=p,
+                        max_length=self.hparams.test_prompt_length,
+                    )
+                )
+                for p in self.hparams.eval_probs
+            ]
 
-        assert (
-            len(test_prompts)
-            == self.hparams.test_prompts_in_distribution_len
-            + self.hparams.test_prompts_ood_len
-        )
+            self.hparams.test_prompts_ood_len = sum(
+                [len(t) for t in self.test_prompts_out_of_distribution]
+            )
 
         if isinstance(self.logger, pl.loggers.wandb.WandbLogger) is True:
             # log entropy of the test prompts = entropy of the distribution of the prompt lengths
@@ -307,32 +317,33 @@ class LightningGrammarModule(pl.LightningModule):
         accuracy = torch.sum(pred_tokens == X_expected) / X_expected.numel()
         self.log(f"{panel_name}/accuracy", accuracy)
 
-        (
-            prompts,
-            metrics,
-            prompts_finished,
-            metrics_finished,
-            ood_prompts,
-            ood_metrics,
-            ood_prompts_finished,
-            ood_metrics_finished,
-            sos_prompts,
-            sos_metrics,
-            sos_prompts_finished,
-            sos_metrics_finished,
-        ) = self.eval_prompt_prediction()
-
-        self._log_dict(name=f"{panel_name}/ID", dictionary=metrics.to_dict())
-        self._log_dict(
-            name=f"{panel_name}/ID/finished", dictionary=metrics_finished.to_dict()
-        )
-
-        self._log_dict(name=f"{panel_name}/OOD", dictionary=ood_metrics.to_dict())
-        self._log_dict(
-            name=f"{panel_name}/OOD/finished", dictionary=ood_metrics_finished.to_dict()
-        )
-
         if self.hparams.grammar not in ["coinflip", "coinflip_mixture"]:
+            (
+                prompts,
+                metrics,
+                prompts_finished,
+                metrics_finished,
+                ood_prompts,
+                ood_metrics,
+                ood_prompts_finished,
+                ood_metrics_finished,
+                sos_prompts,
+                sos_metrics,
+                sos_prompts_finished,
+                sos_metrics_finished,
+            ) = self.eval_prompt_prediction()
+
+            self._log_dict(name=f"{panel_name}/ID", dictionary=metrics.to_dict())
+            self._log_dict(
+                name=f"{panel_name}/ID/finished", dictionary=metrics_finished.to_dict()
+            )
+
+            self._log_dict(name=f"{panel_name}/OOD", dictionary=ood_metrics.to_dict())
+            self._log_dict(
+                name=f"{panel_name}/OOD/finished",
+                dictionary=ood_metrics_finished.to_dict(),
+            )
+
             self._log_dict(name=f"{panel_name}/SOS", dictionary=sos_metrics.to_dict())
             self._log_dict(
                 name=f"{panel_name}/SOS/finished",
@@ -340,11 +351,27 @@ class LightningGrammarModule(pl.LightningModule):
             )
 
         # calculate token probabilities
-        if self.hparams.grammar in ["coinflip", "coinflip_mixture"]:
+        elif self.hparams.grammar in ["coinflip", "coinflip_mixture"]:
             mean_probs = torch.nn.functional.softmax(pred, dim=1).mean(0).mean(-1)
 
             self.log(f"{panel_name}/prob_head", mean_probs[0])
             self.log(f"{panel_name}/prob_tail", mean_probs[1])
+
+            for p, ood_prompts in zip(
+                self.hparams.eval_probs, self.test_prompts_out_of_distribution
+            ):
+                X, X_expected, pred, loss = self._forward(
+                    ood_prompts.to(self.hparams.device)
+                )
+                # pick most likely token and calculate and log accuracy
+                pred_tokens = self._pick_next_tokens(pred)
+                accuracy = torch.sum(pred_tokens == X_expected) / X_expected.numel()
+                self.log(f"{panel_name}/OOD/{p}/accuracy", accuracy)
+
+                mean_probs = torch.nn.functional.softmax(pred, dim=1).mean(0).mean(-1)
+
+                self.log(f"{panel_name}/OOD/{p}/prob_head", mean_probs[0])
+                self.log(f"{panel_name}/OOD/{p}/prob_tail", mean_probs[1])
 
         if isinstance(self.logger, pl.loggers.wandb.WandbLogger) is True:
             logger: pl.loggers.wandb.WandbLogger = self.logger
@@ -398,28 +425,28 @@ class LightningGrammarModule(pl.LightningModule):
             self.log(f"{name}/{key}", value)
 
     def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        (
-            prompts,
-            metrics,
-            prompts_finished,
-            metrics_finished,
-            ood_prompts,
-            ood_metrics,
-            ood_prompts_finished,
-            ood_metrics_finished,
-            sos_prompts,
-            sos_metrics,
-            sos_prompts_finished,
-            sos_metrics_finished,
-        ) = self.eval_prompt_prediction()
-
-        checkpoint["prompts"] = prompts.cpu().numpy()
-        checkpoint["prompts_finished"] = prompts_finished.cpu().numpy()
-
-        checkpoint["ood_prompts"] = ood_prompts.cpu().numpy()
-        checkpoint["ood_prompts_finished"] = ood_prompts_finished.cpu().numpy()
-
         if self.hparams.grammar not in ["coinflip", "coinflip_mixture"]:
+            (
+                prompts,
+                metrics,
+                prompts_finished,
+                metrics_finished,
+                ood_prompts,
+                ood_metrics,
+                ood_prompts_finished,
+                ood_metrics_finished,
+                sos_prompts,
+                sos_metrics,
+                sos_prompts_finished,
+                sos_metrics_finished,
+            ) = self.eval_prompt_prediction()
+
+            checkpoint["prompts"] = prompts.cpu().numpy()
+            checkpoint["prompts_finished"] = prompts_finished.cpu().numpy()
+
+            checkpoint["ood_prompts"] = ood_prompts.cpu().numpy()
+            checkpoint["ood_prompts_finished"] = ood_prompts_finished.cpu().numpy()
+
             checkpoint["sos_prompts"] = sos_prompts.cpu().numpy()
             checkpoint["sos_prompts_finished"] = sos_prompts_finished.cpu().numpy()
 
