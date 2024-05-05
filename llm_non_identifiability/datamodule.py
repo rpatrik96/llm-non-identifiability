@@ -31,9 +31,11 @@ class GrammarDataModule(pl.LightningDataModule):
         max_num_workers: int = 4,
         probs=(0.1, 0.6),
         len_zero_prefix=10,
+        ones_in_zero_prefix=3,
     ):
         """
 
+        :param ones_in_zero_prefix:
         :param len_zero_prefix:
         :param probs:
         :param max_num_workers:
