@@ -12,21 +12,23 @@ metric:
   name: Val/loss
 parameters:
   trainer.max_epochs:
-    value: 50000
-  model.dim_model:
+    value: 4000
+  trainer.check_val_every_n_epoch:
     value: 10
+  model.dim_model:
+    value: 8
   model.num_heads:
     value: 5
   model.dim_feedforward:
     value: 1024
   model.num_decoder_layers:
-    value: 5
+    value: 4
   model.dropout_p:
     value: 0.1
   model.test_prompt_length:
     value: 8
   model.max_pred_length:
-    value: 300
+    value: 256
   model.lr:
     value: 0.002
   model.layer_norm_eps:
