@@ -169,8 +169,8 @@ class LightningGrammarModule(pl.LightningModule):
                 torch.from_numpy(
                     generate_coinflip_data(
                         num_samples=2**self.hparams.test_prompt_length,
-                        p=p,
                         max_length=self.hparams.test_prompt_length,
+                        p=p,
                     )
                 )
                 for p in self.hparams.eval_probs

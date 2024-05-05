@@ -387,10 +387,11 @@ def generate_coinflip_data(
 
 
 def generate_coinflip_mixture_data(
-    num_samples: int, probs: list, max_length: int = 32
+    num_samples: int, probs: list, max_length: int = 32, len_zero_prefix=0
 ) -> np.ndarray:
     """
     Generates random sequences of 0's and 1's
+    :param len_zero_prefix:
     :param p:
     :param num_samples:
     :param max_length:
@@ -399,7 +400,12 @@ def generate_coinflip_mixture_data(
     #  random coinflips with bernoulli distribution
     data = np.concatenate(
         [
-            generate_coinflip_data(num_samples // len(probs), max_length, p)
+            generate_coinflip_data(
+                num_samples // len(probs),
+                max_length,
+                p,
+                len_zero_prefix=len_zero_prefix,
+            )
             for p in probs
         ]
     )
