@@ -227,12 +227,17 @@ def test_generate_test_prompts():
     assert prompts.shape == (2**length, length + 1)
 
 
-@pytest.mark.parametrize("len_zero_prefix", [0, 3])
-def test_generate_coinflip_data(len_zero_prefix):
+@pytest.mark.parametrize(
+    "len_zero_prefix, ones_in_zero_prefix", [[0, 0], [3, 0], [3, 1]]
+)
+def test_generate_coinflip_data(len_zero_prefix, ones_in_zero_prefix):
     num_samples = 5
     max_length = 20
     data = generate_coinflip_data(
-        num_samples, max_length, len_zero_prefix=len_zero_prefix
+        num_samples,
+        max_length,
+        len_zero_prefix=len_zero_prefix,
+        ones_in_zero_prefix=ones_in_zero_prefix,
     )
 
     assert len(data) == num_samples
@@ -240,7 +245,12 @@ def test_generate_coinflip_data(len_zero_prefix):
     assert all(all(t in [0, 1] for t in d) for d in data)
 
     if len_zero_prefix > 0:
-        assert all((d[:len_zero_prefix] == 0).all() for d in data)
+        if ones_in_zero_prefix > 0:
+            assert all(
+                (d[:len_zero_prefix] == 1).sum() == ones_in_zero_prefix for d in data
+            )
+        else:
+            assert all((d[:len_zero_prefix] == 0).all() for d in data)
 
 
 @pytest.mark.parametrize("len_zero_prefix", [0, 3])

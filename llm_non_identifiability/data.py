@@ -353,10 +353,15 @@ def generate_test_prompts(length: int = 6):
 
 
 def generate_coinflip_data(
-    num_samples: int, max_length: int = 32, p=0.5, len_zero_prefix=0
+    num_samples: int,
+    max_length: int = 32,
+    p=0.5,
+    len_zero_prefix=0,
+    ones_in_zero_prefix=0,
 ) -> np.ndarray:
     """
     Generates random sequences of 0's and 1's
+    :param ones_in_zero_prefix:
     :param len_zero_prefix:
     :param p:
     :param num_samples:
@@ -366,13 +371,31 @@ def generate_coinflip_data(
     #  random coinflips with bernoulli distribution
     data = np.random.binomial(1, p, (num_samples, max_length))
     if len_zero_prefix > 0:
-        ones = data.sum(axis=1)
         ones_in_prefix = data[:, :len_zero_prefix].sum(axis=1)
-        postfix_len = max_length - len_zero_prefix
-        data[:, :len_zero_prefix] = 0
         ones_after_prefix = data[:, len_zero_prefix:].sum(axis=1)
 
+        if ones_in_zero_prefix > 0:
+            if ones_in_zero_prefix > len_zero_prefix:
+                raise ValueError(
+                    "ones_in_zero_prefix cannot be greater than len_zero_prefix"
+                )
+
+            for i, (prefix_ones, postfix_ones) in enumerate(
+                (zip(ones_in_prefix, ones_after_prefix))
+            ):
+                while prefix_ones != ones_in_zero_prefix:
+                    offset = np.random.randint(0, len_zero_prefix)
+                    data[i, offset] = 1 if (prefix_ones < ones_in_zero_prefix) else 0
+                    prefix_ones = data[i, :len_zero_prefix].sum()
+
+        else:
+            data[:, :len_zero_prefix] = 0
+
         # if there are ones in the prefix, add flip as many zeros after the prefix
+        ones = data.sum(axis=1)
+        ones_in_prefix = data[:, :len_zero_prefix].sum(axis=1)
+        ones_after_prefix = data[:, len_zero_prefix:].sum(axis=1)
+        postfix_len = max_length - len_zero_prefix
         for i, (prefix_ones, postfix_ones) in enumerate(
             (zip(ones_in_prefix, ones_after_prefix))
         ):
