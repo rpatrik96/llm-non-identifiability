@@ -1,8 +1,8 @@
 <div align="center">    
  
-# Non-identifiability in Large Language Models
+# Understanding LLMs Requires More Than Statistical Generalization
 
-[//]: # ([![Paper]&#40;http://img.shields.io/badge/arxiv-cs.LG:2311.18048-B31B1B.svg&#41;]&#40;https://arxiv.org/abs/2311.18048&#41;)
+[![Paper](http://img.shields.io/badge/arxiv-stat.ML:2405.01964-B31B1B.svg)](https://arxiv.org/abs/2405.01964)
 
 [//]: # ([![Conference]&#40;http://img.shields.io/badge/CI4TS@UAI-2023.svg&#41;]&#40;https://sites.google.com/view/ci4ts2023/accepted-papers?authuser=0&#41;)
 
@@ -11,7 +11,7 @@
 </div>
  
 ## Description   
-
+Codebase for the ICML 2024 position paper titled _Understanding LLMs Requires More Than Statistical Generalization_.
 
 ## How to run
 
@@ -71,8 +71,13 @@ wandb sweep sweeps/<configFile>.yaml
 
 ```
 
-@inproceedings{
- 
+@misc{reizinger2024understanding,
+      title={Understanding LLMs Requires More Than Statistical Generalization}, 
+      author={Patrik Reizinger and Szilvia Ujváry and Anna Mészáros and Anna Kerekes and Wieland Brendel and Ferenc Huszár},
+      year={2024},
+      eprint={2405.01964},
+      archivePrefix={arXiv},
+      primaryClass={stat.ML}
 }
 
 ```   
